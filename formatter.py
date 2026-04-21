@@ -1,12 +1,25 @@
 import shutil
 import sys
+import os
 import argparse
 import requests
+import chardet
+import tempfile
+from io import StringIO
 
-def read_data(filename):
-    # Чтение файла и разделение строк
+def detect_encoding(filename): #### ОПРЕДЕЛЕНИЕ КОДИРОВКИ
+    #Определяет кодировку файла
+    with open(filename, 'rb') as f:
+        raw = f.read(1000000)
+        result = chardet.detect(raw)
+        return result['encoding'] or 'utf-8'
+
+def read_data(filename): #### ЧТЕНИЕ ФАЙЛА
     data = []
-    with open(filename, 'r', encoding='utf-8') as f: 
+    encoding = detect_encoding(filename)
+    print(f"Определена кодировка: {encoding}")
+    
+    with open(filename, 'r', encoding=encoding) as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -22,8 +35,8 @@ def read_data(filename):
                 })
     return data
 
-def shorten_name(name, level):
-    #Если консоль слишком узкая, то можно сократить некоторые данные
+
+def shorten_name(name, level): #### СОКРАЩЕНИЕ ИМЕНИ
     parts = name.split()
     if level == 0 or len(parts) < 2:
         return name
@@ -44,9 +57,7 @@ def shorten_name(name, level):
         return initials
     return name
 
-def fix_date(date_str):
-    # Исправление формата даты
-    # Разделяем дату и время
+def fix_date(date_str): #### ОТОБРАЖЕНИЕ ДАТЫ И ВРЕМЕНИ
     parts = date_str.split()
     date_part = parts[0]
     time_part = parts[1] if len(parts) > 1 else ""
@@ -58,7 +69,6 @@ def fix_date(date_str):
     
     year, month, day = date_components
     
-    # Проверяем, нужно ли менять местами
     if int(month) > 12:
         # Меняем местами день и месяц
         month, day = day, month
@@ -86,7 +96,7 @@ def shorten_date(date_str, level):
         return '-'.join(date_part.split('-')[i] for i in [-2, -1]) if '-' in date_part else date_part
     return date_str
 
-def shorten_address(address, level, max_len=50):
+def shorten_address(address, level, max_len=50): #### СОКРАЩЕНИЕ АДРЕСА
     #сокращение
     if level == 0:
         return address
@@ -100,12 +110,13 @@ def shorten_address(address, level, max_len=50):
     return address
 
 def print_table(data):
-    #Выводит таблицу с динамическим сокращением
+    #Выводит таблицу с динамическим сокращением и общим заголовком
     if not data:
         return
     
     max_width = shutil.get_terminal_size().columns
     headers = ['ФИО', 'Возраст', 'Адрес', 'Дата рождения']
+    table_title = "Таблица пользователей"
     
     # Копируем данные, чтобы не портить оригинал
     working_data = [row.copy() for row in data]
@@ -129,13 +140,26 @@ def print_table(data):
         total_width = sum(col_widths) + 3 * 3 + 2  # рамки и разделители
         
         if total_width <= max_width or level == 4:  # влезает или уже максимум
-            # Выводим таблицу
+            # Выводим общий заголовок таблицы
+            title_width = total_width - 2  # ширина без внешних рамок
+            if len(table_title) > title_width:
+                # Если заголовок не влезает - обрезаем
+                table_title_display = table_title[:title_width-3] + '...'
+            else:
+                table_title_display = table_title.center(title_width)
+            
+            print('+' + '-' * (total_width - 2) + '+')
+            print(f"|{table_title_display}|")
+            print('+' + '-' * (total_width - 2) + '+')
+            
+            # Выводим шапку таблицы с заголовками столбцов
             separator = '+' + '+'.join('-' * (w + 2) for w in col_widths) + '+'
             print(separator)
             header_row = '| ' + ' | '.join(headers[i].ljust(col_widths[i]) for i in range(4)) + ' |'
             print(header_row)
             print(separator)
             
+            # Выводим данные
             for row in working_data:
                 data_row = '| ' + ' | '.join(
                     row[col].ljust(col_widths[i]) for i, col in enumerate(['name', 'age', 'address', 'date'])
@@ -148,9 +172,7 @@ def print_table(data):
         # Сбрасываем данные для следующего уровня (снова берём оригинал)
         working_data = [row.copy() for row in data]
 
-if __name__ == '__main__':
-    import argparse
-    
+if __name__ == '__main__':    
     parser = argparse.ArgumentParser(description='Преобразователь таблиц')
     parser.add_argument('-i', '--input', required=True, help='Путь к файлу или URL')
     args = parser.parse_args()
@@ -158,20 +180,16 @@ if __name__ == '__main__':
     
     # Проверяем, является ли вход ссылкой
     if filename.startswith(('http://', 'https://')):
-        import requests
         response = requests.get(filename)
         response.encoding = 'utf-8'
         # Сохраняем во временный файл или читаем из строки
-        from io import StringIO
         fake_file = StringIO(response.text)
         # Или временно сохранить на диск
-        import tempfile
         with tempfile.NamedTemporaryFile(mode='w', delete=False, encoding='utf-8') as tmp:
             tmp.write(response.text)
             tmp_path = tmp.name
         data = read_data(tmp_path)
         # Удаляем временный файл после чтения
-        import os
         os.unlink(tmp_path)
     else:
         data = read_data(filename)
