@@ -147,12 +147,7 @@ def print_table(data):
         # Если не влезло и не последний уровень — продолжаем цикл
         # Сбрасываем данные для следующего уровня (снова берём оригинал)
         working_data = [row.copy() for row in data]
-"""
-if __name__ == '__main__':
-    filename = sys.argv[1] if len(sys.argv) > 1 else 'data.txt'
-    data = read_data(filename)  # используем твою функцию read_data
-    print_table(data)
-"""
+
 if __name__ == '__main__':
     import argparse
     
