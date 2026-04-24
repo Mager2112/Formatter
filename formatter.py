@@ -13,13 +13,13 @@ def detect_encoding(filename): #### ОПРЕДЕЛЕНИЕ КОДИРОВКИ
     with open(filename, 'rb') as f:
         raw = f.read(1000000)
         result = chardet.detect(raw)
-        print(f"chardet результат: {result}")
+        #print(f"chardet результат: {result}") отладка не нужна
         return result['encoding'] or 'utf-8'
 
 def read_data(filename): #### ЧТЕНИЕ ФАЙЛА
     data = []
     encoding = detect_encoding(filename)
-    print(f"Определена кодировка: {encoding}")
+    #print(f"Определена кодировка: {encoding}") отладка не нужна
     
     with open(filename, 'r', encoding=encoding) as f:
         for line in f:
@@ -58,128 +58,87 @@ def shorten_name(name, level): #### СОКРАЩЕНИЕ ИМЕНИ
         return initials
     return name
 
-def fix_date(date_str):
-    """
-    Приводит дату (и время) к формату YYYY-MM-DD HH:MM:SS
-    Поддерживает различные форматы ввода
-    """
-    date_str = date_str.strip()
-    date_part = ""
-    time_part = ""
-    
-    # 1. Пробуем разделить дату и время (если есть пробел или T)
-    if 'T' in date_str:
-        parts = date_str.split('T')
-        date_part = parts[0]
-        time_part = parts[1] if len(parts) > 1 else ""
-    elif ' ' in date_str:
-        parts = date_str.split()
-        date_part = parts[0]
-        time_part = parts[1] if len(parts) > 1 else ""
-    else:
-        # Возможно, только дата или только время
-        # Проверяем, похоже ли на время (содержит двоеточия)
-        if ':' in date_str:
-            time_part = date_str
-            date_part = ""
-        else:
-            date_part = date_str
-            time_part = ""
-    
-    # 2. Разбираем дату
-    fixed_date = parse_date_part(date_part) if date_part else ""
-    
-    # 3. Разбираем время
-    fixed_time = parse_time_part(time_part) if time_part else "00:00:00"
-    
-    # 4. Если дата не распознана, возвращаем исходную строку
-    if not fixed_date and date_part:
-        return date_str
-    
-    # 5. Собираем результат
-    if fixed_date:
-        return f"{fixed_date} {fixed_time}"
-    else:
-        # Было только время (маловероятно для наших данных)
-        return fixed_time
-
-
 def parse_date_part(date_str):
-    """Парсит дату из разных форматов в YYYY-MM-DD"""
-    date_str = date_str.strip()
-    
-    # Удаляем возможные кавычки и пробелы
-    date_str = date_str.strip('"\'')
-    
-    # Список возможных форматов (порядок важен: от более специфичных к общим)
+    """Парсит дату из разных форматов в YYYY-MM-DD с автоисправлением перепутанных дня и месяца"""
+    date_str = date_str.strip().strip('"\'')
+
+    # Сначала пробуем распознать дату из разных форматов
     formats = [
-        # ISO с дефисами
-        (r'^(\d{4})-(\d{1,2})-(\d{1,2})$', '%Y-%m-%d'),
-        # ISO с дефисами и временем (уже отделено)
-        (r'^(\d{4})-(\d{1,2})-(\d{1,2})$', '%Y-%m-%d'),
-        # Без разделителей YYYYMMDD
-        (r'^(\d{4})(\d{2})(\d{2})$', '%Y%m%d'),
-        # С точками YYYY.MM.DD
-        (r'^(\d{4})\.(\d{1,2})\.(\d{1,2})$', '%Y.%m.%d'),
-        # Со слешами YYYY/MM/DD
-        (r'^(\d{4})/(\d{1,2})/(\d{1,2})$', '%Y/%m/%d'),
-        # DD.MM.YYYY (российский формат)
-        (r'^(\d{1,2})\.(\d{1,2})\.(\d{4})$', '%d.%m.%Y'),
-        # DD-MM-YYYY
-        (r'^(\d{1,2})-(\d{1,2})-(\d{4})$', '%d-%m-%Y'),
-        # DD/MM/YYYY
-        (r'^(\d{1,2})/(\d{1,2})/(\d{4})$', '%d/%m/%Y'),
+        (r'^(\d{4})-(\d{1,2})-(\d{1,2})$', '%Y-%m-%d', 'iso_dash'),
+        (r'^(\d{4})\.(\d{1,2})\.(\d{1,2})$', '%Y.%m.%d', 'iso_dot'),
+        (r'^(\d{4})/(\d{1,2})/(\d{1,2})$', '%Y/%m/%d', 'iso_slash'),
+        (r'^(\d{1,2})\.(\d{1,2})\.(\d{4})$', '%d.%m.%Y', 'ru_dot'),
+        (r'^(\d{1,2})-(\d{1,2})-(\d{4})$', '%d-%m-%Y', 'ru_dash'),
+        (r'^(\d{1,2})/(\d{1,2})/(\d{4})$', '%d/%m/%Y', 'ru_slash'),
+        (r'^(\d{4})(\d{2})(\d{2})$', '%Y%m%d', 'yyyymmdd'),  # YYYYMMDD
     ]
-    
-    # Пробуем каждый формат
-    for pattern, fmt in formats:
+
+    # 1. Пробуем распознать по форматам
+    for pattern, fmt, ftype in formats:
         match = re.match(pattern, date_str)
         if match:
             try:
-                # Парсим через datetime для валидации
                 dt = datetime.strptime(date_str, fmt)
                 year, month, day = dt.year, dt.month, dt.day
-                
-                # Проверяем, не перепутаны ли день и месяц (месяц > 12)
+
+                # Проверяем и исправляем перепутанные день и месяц
+                # Если месяц > 12 - однозначно перепутаны
                 if month > 12:
-                    # Меняем местами
                     month, day = day, month
-                    # Проверяем валидность после обмена
                     try:
                         dt = datetime(year, month, day)
                     except ValueError:
-                        # Если дата невалидна, оставляем как есть
+                        month, day = day, month  # возвращаем обратно
+                # Если месяц <= 12, но день > 31 или некорректный
+                # Пробуем поменять местами
+                elif day > 12 and month <= 12:
+                    # Возможно, тоже перепутаны
+                    month, day = day, month
+                    try:
+                        # Проверяем, получилась ли валидная дата
+                        dt_check = datetime(year, month, day)
+                        # Если получилось - оставляем
+                    except ValueError:
+                        # Если нет - возвращаем обратно
                         month, day = day, month
-                
+
                 return f"{year:04d}-{month:02d}-{day:02d}"
             except ValueError:
-                # Невалидная дата (например, 31 февраля)
                 continue
-    
-    # Если ничего не подошло, пробуем извлечь числа вручную
+
+    # 2. Если не распознали, пробуем извлечь числа вручную
     numbers = re.findall(r'\d+', date_str)
     if len(numbers) >= 3:
-        # Пытаемся угадать: что год, месяц, день
-        candidates = []
-        
-        # Ищем 4-значное число (скорее всего год)
+        # Ищем 4-значное число (год)
         year_candidates = [n for n in numbers if len(n) == 4]
         if year_candidates:
             year = int(year_candidates[0])
+            # Остальные числа (потенциально месяц и день)
             rest = [int(n) for n in numbers if n != str(year)]
             if len(rest) >= 2:
                 month, day = rest[0], rest[1]
-                
-                # Если месяц > 12, меняем
+
+                # Исправляем перепутанные день и месяц
                 if month > 12:
                     month, day = day, month
-                
+                # Если месяц <= 12, но день > 12, тоже пробуем поменять
+                elif month <= 12 and day > 12:
+                    month, day = day, month
+
+                # Проверяем валидность
                 try:
                     datetime(year, month, day)
                     return f"{year:04d}-{month:02d}-{day:02d}"
                 except ValueError:
-                    pass
-    
+                    # Если невалидно, пробуем другие варианты
+                    for m, d in [(rest[0], rest[1]), (rest[1], rest[0])]:
+                        if m <= 12 and d <= 31:
+                            try:
+                                datetime(year, m, d)
+                                return f"{year:04d}-{m:02d}-{d:02d}"
+                            except ValueError:
+                                continue
+
     return None
 
 
@@ -209,8 +168,74 @@ def parse_time_part(time_str):
             except ValueError:
                 continue
     
-    # Если не распознали, возвращаем 00:00:00
     return "00:00:00"
+
+
+def fix_date(date_str):
+    """Исправление даты и времени - ОСНОВНАЯ ФУНКЦИЯ"""
+    date_str = date_str.strip()
+    
+    # Отделяем дату от времени
+    date_part = ""
+    time_part = ""
+    
+    # Проверка разных вариантов
+    if 'T' in date_str:
+        parts = date_str.split('T')
+        date_part = parts[0]
+        time_part = parts[1] if len(parts) > 1 else ""
+    elif ' ' in date_str:
+        parts = date_str.split()
+        date_part = parts[0]
+        time_part = parts[1] if len(parts) > 1 else ""
+    else:
+        if ':' in date_str:
+            time_part = date_str
+        else:
+            date_part = date_str
+    
+    # Парсим дату
+    fixed_date = parse_date_part(date_part) if date_part else ""
+    
+    # Парсим время
+    fixed_time = parse_time_part(time_part) if time_part else "00:00:00"
+    
+    # Если дата не распознана, но есть только время
+    if not fixed_date and date_part:
+        # Пробуем обработать как дату без разделителей (например, 20211309)
+        # Это может быть случай, когда дата и время слиты
+        if len(date_part) >= 8 and not any(c in date_part for c in ' -./:'):
+            # Возможно, это YYYYMMDD
+            test_date = parse_date_part(date_part[:8])
+            if test_date:
+                fixed_date = test_date
+                # Время может быть в оставшейся части
+                if len(date_part) > 8 and ':' not in time_part:
+                    time_candidate = date_part[8:]
+                    fixed_time = parse_time_part(time_candidate) if time_candidate else fixed_time
+    
+    # Собираем результат
+    if fixed_date:
+        return f"{fixed_date} {fixed_time}"
+    elif date_part and not fixed_date:
+        # Если дата не распознана, возвращаем исходную строку с попыткой исправить месяц
+        # Для случая 20211309 (13-й месяц)
+        if len(date_part) == 8 and date_part.isdigit():
+            year = date_part[:4]
+            month_day = date_part[4:]
+            month = int(month_day[:2])
+            day = month_day[2:]
+            if month > 12:
+                # Меняем местами месяц и день
+                new_date = f"{year}{day}{month_day[:2]}"
+                # Пробуем спарсить снова
+                fixed = parse_date_part(new_date)
+                if fixed:
+                    return f"{fixed} {fixed_time}"
+        return date_str
+    else:
+        return fixed_time
+
 
 def shorten_date(date_str, level):
     #Сокращение даты и времени
