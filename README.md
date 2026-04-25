@@ -15,4 +15,3 @@
 > Можно также ввести команду python formatter.py --help для дополнительных сведений
 
 ## Изображения
-![image](https://github.com/Mager2112/Formatter/blob/main/Formatter.PNG)
