@@ -16,3 +16,9 @@
 
 ## Изображения
 ![image](https://github.com/Mager2112/Formatter/blob/main/picture_1.PNG)
+
+*Результат работы программы. Можно разную ширину таблицы из-за разной ширины консоли*
+
+![image](https://github.com/Mager2112/Formatter/blob/main/picture_2.PNG)
+
+*результат работы с тестами 53/53 пройдено успешно*
