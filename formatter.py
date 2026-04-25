@@ -231,26 +231,60 @@ def shorten_date(date_str, level): #### СОКРАЩЕНИЕ ДАТЫ И ВРЕ�
     date_part = parts[0]
     time_part = parts[1] if len(parts) > 1 else ''
     
-    if level == 0:
+    if level == 0 or level == 1:
         return date_str  # полная дата + время
-    elif level == 1:
-        return date_part  # только дата
-    elif level >= 2:
-        # короткая дата: 22-03-15
+    """elif level == 1:
+        return date_part  # только дата"""
+    if level >= 2:
+        # короткая дата
         return '-'.join(date_part.split('-')[i] for i in [-2, -1]) if '-' in date_part else date_part
     return date_str
 
 def shorten_address(address, level, max_len=50): #### СОКРАЩЕНИЕ АДРЕСА
-    #сокращение
+    
     if level == 0:
         return address
-    elif level == 1:
-        return address[:max_len-3] + '...' if len(address) > max_len else address
+    
+    # Сокращение улицы, проспекта и прочего
+    address = address.replace('улица', 'ул.')
+    address = address.replace('проспект', 'прс.')
+    address = address.replace('проезд', 'прз.')
+    address = address.replace('бульвар', 'бв.')
+    
+    # Особые случаи
+    special_cities = {
+    'санкт-петербург': 'СПб',
+    'москва': 'Мск',
+    'новосибирск': 'Нск',
+    'краснодар': 'Крд'
+    }
+
+    # Сокращение города
+    if ',' in address:
+        parts = address.rsplit(',', 1)
+        if len(parts) == 2:
+            street_part = parts[0]
+            city = parts[1].strip()
+            
+            # Сокращаем название города (первые 3-4 буквы + точка)
+            city_lower = city.lower()
+            if city_lower in special_cities:
+                city = special_cities[city_lower]
+            elif len(city) > 4:
+                city = city[:3] + '-' + city[-1] + '.'
+            elif len(city) > 2:
+                city = city[:3] + '.'
+            address = f"{street_part}, {city}"
+    
+    if level == 1:
+        words = address.split()
+        return ' '.join(words[:4])
     elif level >= 2:
-        # сокращаем с начала и конца
+        # Сильное сокращение
         if len(address) > max_len - 6:
-            return address[:max_len//2] + '...' + address[-max_len//2:]
+            return address[:max_len//2] + '.' + address[-max_len//2:]
         return address
+    
     return address
 
 def print_table(data): #### ВЫВЕДЕНИЕ ТАБЛИЦЫ
@@ -258,7 +292,7 @@ def print_table(data): #### ВЫВЕДЕНИЕ ТАБЛИЦЫ
         return
     
     max_width = shutil.get_terminal_size().columns
-    headers = ['ФИО', 'Возраст', 'Адрес', 'Дата рождения']
+    headers = ['ФИО', 'Возраст', 'Адрес', 'Дата']
     table_title = "ТАБЛИЦА ПОЛЬЗОВАТЕЛЕЙ"
     
     # Копируем данные, чтобы не портить оригинал
@@ -315,7 +349,7 @@ def print_table(data): #### ВЫВЕДЕНИЕ ТАБЛИЦЫ
         # Сбрасываем данные для следующего уровня (снова берём оригинал)
         working_data = [row.copy() for row in data]
 
-def main():
+def main(): #### ГЛАВНАЯ ФУНКЦИЯ
     # то, что показывается в консолях --help
     parser = argparse.ArgumentParser(description='Преобразователь таблиц. Он из файла с данными может создать таблицу')
     parser.add_argument('-i', '--input', required=True, help='Путь к файлу или URL')
@@ -340,5 +374,5 @@ def main():
     
     print_table(data)
 
-if __name__ == '__main__':    
+if __name__ == '__main__':    #### MAIN
     main()
