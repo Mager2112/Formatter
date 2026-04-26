@@ -29,7 +29,7 @@
 > python script.py -i <любое_название>.txt
 > 
 > python script.py --input <любое_название>.txt
-12. ✅Сделать так чтобы программа могла принимать на вход ссылку на файл именованным параметром. Например:
+12. ✅❓Сделать так чтобы программа могла принимать на вход ссылку на файл именованным параметром. Например:
 >python script.py -i https://gitlab.com/toptenov/automation_qa_intern_2026/-/raw/main/data.txt
 >
 > python script.py --input https://gitlab.com/toptenov/automation_qa_intern_2026/-/raw/main/data.txt
