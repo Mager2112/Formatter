@@ -43,3 +43,5 @@
 ![image](https://github.com/Mager2112/Formatter/blob/main/picture_2.PNG)
 
 *результат работы с тестами 53/53 пройдено успешно*
+
+![image](https://github.com/Mager2112/Formatter/blob/main/picture_3.PNG)
