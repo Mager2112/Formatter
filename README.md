@@ -71,3 +71,8 @@
 *результат работы с тестами 53/53 пройдено успешно*
 
 ![image](https://github.com/Mager2112/Formatter/blob/main/picture_3.PNG)
+
+*файл в другой кодировке*
+
+![image](https://github.com/Mager2112/Formatter/blob/main/picture_4.PNG)
+*Эта программа также работает на Windows, но там надо ввести команду **pip install --user requests chardet pytest***
